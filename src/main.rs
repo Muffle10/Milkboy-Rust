@@ -64,7 +64,9 @@ impl AnimatedSprite {
                     self.entity_rect.y -= 300f32 * get_frame_time() as f32;
                 }
             }
-            EntityType::Enemy => todo!()
+            EntityType::Enemy => {
+                self.entity_rect.x += 1
+            }
         }
     }
 }
@@ -81,8 +83,6 @@ async fn main() {
 
         frame+=1;
         clear_background(WHITE);
-        draw_text(&format!("{}", frame), 400f32, 200f32, 100f32, BLACK);
-        draw_text(&format!("{}", get_frame_time() as f32), 400f32, 300f32, 100f32, BLACK);
         //draw_texture_ex(&milkboy_texture, pos.x,pos.y, WHITE, DrawTextureParams{dest_size: Some(Vec2 {x:100f32, y:100f32}),source: Some(source_rect), ..Default::default()});
         player_sprite.draw();
         player_sprite.animate(5f32, frame);
