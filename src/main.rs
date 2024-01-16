@@ -3,6 +3,12 @@ enum EntityType {
     Enemy,
     Player,
 }
+#[derive(PartialEq)]
+enum GameState{
+    Dialogue,
+    Active,
+    Menu
+}
 
 fn move_player(entity_rect: &mut Rect){
     if is_key_down(KeyCode::Right){
@@ -101,44 +107,114 @@ impl AnimatedSprite {
         }
     }
 }
+fn resolve_collision(a: &mut Rect, vel: &mut Vec2, b: &Rect) -> bool {
+    // early exit
+    let intersection = match a.intersect(*b) {
+        Some(intersection) => {
+            if is_key_down(KeyCode::Space){
+                draw_text("poop", 200f32, 200f32, 30f32, BLACK);
+            }
+            intersection
+        }
+        ,
+        None => return false,
+    };
+    let a_center = a.point() + a.size() * 0.5f32;
+    let b_center = b.point() + b.size() * 0.5f32;
+    let to = b_center - a_center;
+    let to_signum = to.signum();
+    match intersection.w > intersection.h {
+        true => {
+            // bounce on y
+            a.y -= to_signum.y * intersection.h;
+            vel.y = -to_signum.y * vel.y.abs();
+        }
+        false => {
+            // bounce on x
+            a.x -= to_signum.x * intersection.w;
+            vel.x = -to_signum.x * vel.x.abs();
+        }
+    }
+    true
+}
 /* todo! */
-async fn setup_animation<const C: usize>(paths: &[&str; C]) -> [Texture2D; C]{
-    let mut output: Vec<Texture2D> = vec![];
+/*async fn setup_animation<const C: usize>(paths: &[&str; C]) -> [Texture2D; C]{
+    let mut output: Vec<Texture2D> = Vec::new();
     let mut index: i16 = 0;
     while index < paths.len() as i16{
         output.push(load_texture(paths[index as usize]).await.unwrap());
         output[index as usize].set_filter(FilterMode::Nearest)
     }
-    return output.try_into()
-    .unwrap_or_else(|v: Vec<Texture2D>| panic!("Expected a Vec of length {} but it was {}", C, v.len()))
-}
+    return output
+}*/
 #[macroquad::main("Milkboy: Rust")]
 async fn main() {
     request_new_screen_size(800f32, 640f32);
     let mut frame: i16 = 0;
+    let mut game_state: GameState = GameState::Active;
     let mut map_index = Vec2::new(1f32,1f32);
+    let mut index = 0;
+    let mut indexer = 1;
+    let text = "Wow, this grass is green!";
+    let mut message:String = "".to_string();
     //let [milkboy_texture, enemy_texture] = setup_animation(&["/Users/family/milkboy-rust/src/assets/milkboy.png","/Users/family/milkboy-rust/src/assets/evil_milk.png"]).await;
     let milkboy_texture: Texture2D = load_texture("/Users/family/milkboy-rust/src/assets/milkboy.png").await.unwrap();
     milkboy_texture.set_filter(FilterMode::Nearest);
+    let dialogue_texture: Texture2D = load_texture("/Users/family/milkboy-rust/src/assets/dialogue-box.png").await.unwrap();
+    let mut dialogue_pos: Vec2 = Vec2::new(100f32,250f32);
+    dialogue_texture.set_filter(FilterMode::Nearest);
     let mut player_sprite = AnimatedSprite::new(Rect::new(10f32, 10f32, 100f32, 100f32), milkboy_texture, EntityType::Player);
     let enemy_texture: Texture2D = load_texture("/Users/family/milkboy-rust/src/assets/evil_milk.png").await.unwrap();
     enemy_texture.set_filter(FilterMode::Nearest);
+    let rock_texture: Texture2D = load_texture("/Users/family/milkboy-rust/src/assets/rock.png").await.unwrap();
+    rock_texture.set_filter(FilterMode::Nearest);
     let mut enemy_sprite = AnimatedSprite::new(Rect::new(10f32, 10f32, 100f32, 100f32), enemy_texture, EntityType::Enemy);
+    let mut rock_sprite = AnimatedSprite::new(Rect::new(10f32, 10f32, 100f32, 100f32), rock_texture, EntityType::Enemy);
     let mut map_texture: Texture2D = load_texture("/Users/family/milkboy-rust/src/assets/map1-1.png").await.unwrap();
     map_texture.set_filter(FilterMode::Nearest);
+    let mut switch = false;
     loop{
-
         frame+=1;
-        clear_background(WHITE);
-        //draw_texture_ex(&milkboy_texture, pos.x,pos.y, WHITE, DrawTextureParams{dest_size: Some(Vec2 {x:100f32, y:100f32}),source: Some(source_rect), ..Default::default()});
-        draw_texture_ex(&map_texture, 0f32, 0f32, WHITE, DrawTextureParams{dest_size: Some(Vec2 {x:800f32, y:640f32}), ..Default::default()});
-        player_sprite.draw();
+        if game_state == GameState::Active{
         player_sprite.animate(5f32, frame);
         player_sprite.update();
-        player_sprite.update_map(&mut map_texture, &mut map_index).await;
-        enemy_sprite.draw();
         enemy_sprite.animate(5f32, frame);
         enemy_sprite.update();
+        }
+        clear_background(WHITE);
+        draw_texture_ex(&map_texture, 0f32, 0f32, WHITE, DrawTextureParams{dest_size: Some(Vec2 {x:800f32, y:640f32}), ..Default::default()});
+        player_sprite.draw();
+        player_sprite.update_map(&mut map_texture, &mut map_index).await;
+        enemy_sprite.draw();
+        rock_sprite.draw();
+        if game_state == GameState::Dialogue{
+            draw_texture_ex(&dialogue_texture,  dialogue_pos.x, dialogue_pos.y,WHITE, DrawTextureParams{dest_size: Some(Vec2 {x:600f32, y:480f32}), ..Default::default()});
+        if index == text.len(){
+            indexer = 0;
+            index = 0;
+        }
+        if frame % 5 == 0{
+            if !(indexer == 0){
+            message = format!("{}{}", message,text.chars().collect::<Vec<_>>()[index]);
+            }
+            index+=indexer;
+        }
+
+        if !(index == text.len()) {
+            draw_text(&message, dialogue_pos.x +100f32, dialogue_pos.y+ 200f32, 30f32, WHITE);
+        } 
+    }
+        if switch {
+            game_state = GameState::Dialogue;
+        } else {
+            game_state = GameState::Active;
+        }
+        if is_key_pressed(KeyCode::Space){
+            switch = !switch;
+            index = 0;
+            indexer = 1;
+            message = "".to_string();
+        } 
         //source_rect.x = 16f32 * source_player_index as f32;
         //enemy_source_rect.x = 16f32 * source_enemy_index as f32;
         next_frame().await;
